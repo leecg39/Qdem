@@ -28,16 +28,54 @@ function formatTime(iso: string | Date) {
   return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function downloadMeetingJson(meetings: Issue[]) {
-  const blob = new Blob([JSON.stringify(meetings, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `meetings-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+function markdownToHtml(md: string): string {
+  return md
+    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^- (.+)$/gm, "<li>$1</li>")
+    .replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>")
+    .replace(/\| (.+)/g, (line) => {
+      const cells = line.split("|").filter(Boolean).map((c) => c.trim());
+      return "<tr>" + cells.map((c) => `<td style="border:1px solid #ddd;padding:6px 10px">${c}</td>`).join("") + "</tr>";
+    })
+    .replace(/^---$/gm, "<hr/>")
+    .replace(/\n/g, "<br/>");
+}
+
+function downloadMeetingsPdf(meetings: Issue[]) {
+  const content = meetings
+    .map((m) => {
+      const date = new Date(m.createdAt).toLocaleDateString("ko-KR");
+      return `<div style="page-break-after:always;margin-bottom:40px">
+        <h1 style="font-size:18px;border-bottom:2px solid #333;padding-bottom:8px">${m.title}</h1>
+        <p style="color:#666;font-size:12px">${m.identifier} | ${date}</p>
+        <div style="font-size:13px;line-height:1.8">${markdownToHtml(m.description ?? "")}</div>
+      </div>`;
+    })
+    .join("");
+
+  const html = `<!DOCTYPE html><html><head>
+    <meta charset="utf-8"/>
+    <title>QDEM 미팅 기록</title>
+    <style>
+      body{font-family:-apple-system,sans-serif;margin:40px;color:#222}
+      h1{font-size:18px}h2{font-size:15px;margin-top:16px}h3{font-size:13px}
+      hr{border:none;border-top:1px solid #ccc;margin:16px 0}
+      li{margin:2px 0}
+      table{border-collapse:collapse;width:100%;margin:8px 0}
+      td{font-size:12px}
+      @media print{body{margin:20px}}
+    </style>
+  </head><body>${content}</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.onafterprint = () => win.close();
+  setTimeout(() => win.print(), 300);
 }
 
 function downloadMeetingMarkdown(meeting: Issue) {
@@ -108,10 +146,10 @@ export function Meetings() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => downloadMeetingJson(meetings)}
+              onClick={() => downloadMeetingsPdf(meetings)}
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
-              전체 내보내기 (JSON)
+              전체 내보내기 (PDF)
             </Button>
           </div>
 
