@@ -78,16 +78,32 @@ function downloadMeetingsPdf(meetings: Issue[]) {
   setTimeout(() => win.print(), 300);
 }
 
-function downloadMeetingMarkdown(meeting: Issue) {
-  const blob = new Blob([meeting.description ?? ""], {
-    type: "text/markdown",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${meeting.identifier}-${new Date(meeting.createdAt).toISOString().slice(0, 10)}.md`;
-  a.click();
-  URL.revokeObjectURL(url);
+function downloadMeetingPdf(meeting: Issue) {
+  const date = new Date(meeting.createdAt).toLocaleDateString("ko-KR");
+  const html = `<!DOCTYPE html><html><head>
+    <meta charset="utf-8"/>
+    <title>${meeting.identifier} - ${meeting.title}</title>
+    <style>
+      body{font-family:-apple-system,sans-serif;margin:40px;color:#222}
+      h1{font-size:18px}h2{font-size:15px;margin-top:16px}h3{font-size:13px}
+      hr{border:none;border-top:1px solid #ccc;margin:16px 0}
+      li{margin:2px 0}
+      table{border-collapse:collapse;width:100%;margin:8px 0}
+      td{font-size:12px}
+      @media print{body{margin:20px}}
+    </style>
+  </head><body>
+    <h1 style="font-size:18px;border-bottom:2px solid #333;padding-bottom:8px">${meeting.title}</h1>
+    <p style="color:#666;font-size:12px">${meeting.identifier} | ${date}</p>
+    <div style="font-size:13px;line-height:1.8">${markdownToHtml(meeting.description ?? "")}</div>
+  </body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.onafterprint = () => win.close();
+  setTimeout(() => win.print(), 300);
 }
 
 export function Meetings() {
@@ -186,10 +202,10 @@ export function Meetings() {
                     size="icon-sm"
                     variant="ghost"
                     className="shrink-0"
-                    title="마크다운 다운로드"
+                    title="PDF 다운로드"
                     onClick={(e) => {
                       e.stopPropagation();
-                      downloadMeetingMarkdown(meeting);
+                      downloadMeetingPdf(meeting);
                     }}
                   >
                     <Download className="h-3.5 w-3.5" />
